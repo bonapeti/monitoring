@@ -1,23 +1,25 @@
 (ns monitoring.core
   (:require 
-    [clojure.core.async :as async :refer [go go-loop chan to-chan map <! <!! >! >!! timeout mix mult tap untap close! put! take!]]
+    [clojure.core.async :as async :refer [go go-loop chan to-chan map <! <!! >! >!! timeout thread thread-call mix mult tap untap close! put! take!]]
     [clj-http.client :as http] 
      )
   (:gen-class))
 
 (import '(java.time Instant))
 
-(defn monitor [on? interval output] 
+(defn monitor [on? interval request_channel sampler] 
   (go-loop [counter 0]
-
            (if (deref on?)
-            (let [start_time (Instant/now)]
-                (>! output counter)
-              ) 
-             )
+            (let [request_time (Instant/now)]
+                (>! request_channel {:counter counter :request_time request_time :sampler sampler})))
            (<! (timeout (deref interval)))
            (recur (inc counter))))
 
+
+(defn dispatcher [request_channel result_channel]
+  (go-loop [request (<! request_channel)]
+           (>! result_channel ((:sampler request)))
+           (recur (<! request_channel))))
 
 (defn printer [ch]
   (go-loop []
@@ -25,11 +27,15 @@
            (recur)))
 
 
-(def c (chan))
+(def requests (chan))
+(def results (chan))
+
 (def interval (atom 10000))
 (def working (atom true))
-(printer c)
-(monitor working interval c)
+(printer results)
+
+(dispatcher requests results)
+(monitor working interval requests rand)
 
 
 
