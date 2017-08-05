@@ -5,16 +5,19 @@
      )
   (:gen-class))
 
-(import '(java.time Instant) '(java.lang.management ManagementFactory))
+(import '(java.time Instant) '(java.lang.management ManagementFactory) '(java.net InetAddress))
 
-(defn monitor [on? interval request_channel sampler] 
+
+(defn monitor [n on? interval request_channel sampler] 
   (go-loop [counter 0]
            (if (deref on?)
             (let [request_time (Instant/now)]
-                (>! request_channel {:counter counter :request_time request_time :sampler sampler})))
+                (>! request_channel {:name n :counter counter :request_time request_time :sampler sampler})))
            (<! (timeout (deref interval)))
            (recur (inc counter))))
 
+
+(defn resolve-dns [host] (InetAddress/getByName host))
 
 (defn printer [ch]
   (go-loop []
@@ -25,7 +28,9 @@
 (def requests (chan))
 (def results (chan))
 
-(defn take-sample [request] ((:sampler request)))
+(defn take-sample [request] 
+  {:name (:name request) 
+   :result (try ((:sampler request)) (catch Exception e (.getMessage e)))})
 
 
 (pipeline-blocking 1 results (map take-sample) requests)
@@ -34,12 +39,9 @@
 (def working (atom true))
 (printer results)
 
-(defn thread-count [] (.getThreadCount (ManagementFactory/getThreadMXBean)))
-
-
-(monitor working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
-
-
+(monitor "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
+(monitor "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
+(monitor "index.hu" working interval requests (fn [] (resolve-dns "index.hu")))
 
 (defn -main
   "I don't do a whole lot ... yet."
