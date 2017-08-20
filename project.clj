@@ -7,6 +7,7 @@
                  [org.clojure/clojure "1.8.0"]
                  [org.clojure/core.async "0.3.443"]
                  [clj-http "3.6.1"]
+                 [riemann-clojure-client "0.4.5"]
                  ]
   :main ^:skip-aot monitoring.core
   :target-path "target/%s"
