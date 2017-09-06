@@ -9,22 +9,25 @@
 (import '(java.time Instant) '(java.lang.management ManagementFactory) '(java.net InetAddress))
 
 
-(defn monitor [n on? interval request_channel sampler] 
+(defn monitor [g n on? interval request_channel sampler] 
   (go-loop [counter 0]
            (if (deref on?)
             (let [request_time (Instant/now)]
-                (>! request_channel {:name n :counter counter :request_time request_time :sampler sampler})))
+                (>! request_channel {:group g :name n :counter counter :request_time request_time :sampler sampler})))
            (<! (timeout (deref interval)))
            (recur (inc counter))))
 
 
 (defn resolve-dns [host] (InetAddress/getByName host))
+;;(defn connect [host port] (
+
 
 (defn start-riemann [host results]
   (let [c (riemann/tcp-client {:host host})]
      (go-loop [result (<! results)]
-        (-> c (riemann/send-event {:service (:name result) :state nil})
-          (deref 5000 ::timeout))
+        (let [riemann-result (:result result) metric (if (instance? Number riemann-result) riemann-result nil)]
+              (-> c (riemann/send-event {:host (:group result) :service (:name result) :state nil :metric metric})
+          (deref 5000 ::timeout)))
         (recur (<! results))
       )))
 
@@ -39,6 +42,7 @@
 
 (defn take-sample [request] 
   {:name (:name request) 
+   :group (:group request)
    :result (try 
              ((:sampler request)) 
              (catch Exception e (.getMessage e)))})
@@ -51,9 +55,9 @@
 ;;(printer results)
 (start-riemann "127.0.0.1" results)
 
-(monitor "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
-(monitor "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
-(monitor "index.hu" working interval requests (fn [] (resolve-dns "index.hu")))
+(monitor "localmachine" "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
+(monitor "localmachine" "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
+(monitor "index.hu" "dns" working interval requests (fn [] (if (= (resolve-dns "217.20.130.99") (resolve-dns "index.hu")) 1 0 )))
 
 (defn -main
   "I don't do a whole lot ... yet."
