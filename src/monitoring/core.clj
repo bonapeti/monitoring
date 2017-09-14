@@ -26,8 +26,11 @@
   (let [c (riemann/tcp-client {:host host})]
      (go-loop [result (<! results)]
         (let [riemann-result (:result result) metric (if (instance? Number riemann-result) riemann-result nil)]
-              (-> c (riemann/send-event {:host (:group result) :service (:name result) :state nil :metric metric})
-          (deref 5000 ::timeout)))
+            (try   
+            (-> c (riemann/send-event {:host (:group result) :service (:name result) :state nil :metric metric})
+                (deref 5000 ::timeout))
+            (catch Exception e))
+              )
         (recur (<! results))
       )))
 
@@ -55,8 +58,11 @@
 ;;(printer results)
 (start-riemann "127.0.0.1" results)
 
-(monitor "localmachine" "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
-(monitor "localmachine" "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
+(def app (.getName (ManagementFactory/getRuntimeMXBean)))
+
+
+(monitor app "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
+(monitor app "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
 (monitor "index.hu" "dns" working interval requests (fn [] (if (= (resolve-dns "217.20.130.99") (resolve-dns "index.hu")) 1 0 )))
 
 (defn -main
