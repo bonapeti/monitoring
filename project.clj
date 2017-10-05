@@ -8,6 +8,8 @@
                  [org.clojure/core.async "0.3.443"]
                  [clj-http "3.6.1"]
                  [riemann-clojure-client "0.4.5"]
+                 [org.clojure/tools.logging "0.3.1"]
+                 [ch.qos.logback/logback-classic "1.1.3"]
                  ]
   :main ^:skip-aot monitoring.core
   :target-path "target/%s"

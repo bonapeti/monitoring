@@ -13,21 +13,29 @@
   (go-loop [counter 0]
            (if (deref on?)
             (let [request_time (Instant/now)]
-                (>! request_channel {:group g :name n :counter counter :request_time request_time :sampler sampler})))
+                (>! request_channel 
+                    {:group g 
+                     :name n 
+                     :request_time request_time 
+                     :sampler sampler})))
            (<! (timeout (deref interval)))
            (recur (inc counter))))
 
 
 (defn resolve-dns [host] (InetAddress/getByName host))
-;;(defn connect [host port] (
 
 
 (defn start-riemann [host results]
   (let [c (riemann/tcp-client {:host host})]
      (go-loop [result (<! results)]
-        (let [riemann-result (:result result) metric (if (instance? Number riemann-result) riemann-result nil)]
+        (let [riemann-result (:result result) 
+              metric (if (instance? Number riemann-result) riemann-result nil)]
             (try   
-            (-> c (riemann/send-event {:host (:group result) :service (:name result) :state nil :metric metric})
+            (-> c (riemann/send-event 
+                    {:host (:group result) 
+                     :service (:name result) 
+                     :state (if (instance? String riemann-result) "critical" "ok")
+                     :metric metric})
                 (deref 5000 ::timeout))
             (catch Exception e))
               )
@@ -41,29 +49,40 @@
 
 
 (def requests (chan))
-(def results (chan))
+(def results (chan 20))
+
+(def mult-results (mult results))
 
 (defn take-sample [request] 
   {:name (:name request) 
    :group (:group request)
    :result (try 
              ((:sampler request)) 
-             (catch Exception e (.getMessage e)))})
+             (catch Exception e 
+               (.getMessage e)))})
 
 
 (pipeline-blocking 1 results (map take-sample) requests)
 
 (def interval (atom 10000))
 (def working (atom true))
-;;(printer results)
-(start-riemann "127.0.0.1" results)
 
-(def app (.getName (ManagementFactory/getRuntimeMXBean)))
+(def riemann-results (chan 20))
+(tap mult-results riemann-results)
+(start-riemann "127.0.0.1" riemann-results)
 
+(def printer-results (chan 20))
+(tap mult-results printer-results)
+(printer printer-results)
+
+(def app "traktor")
+
+(defn validate_dns [dns ip]
+  (if (= (InetAddress/getByName ip) (InetAddress/getByName dns)) 1 0)) 
 
 (monitor app "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
 (monitor app "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
-(monitor "index.hu" "dns" working interval requests (fn [] (if (= (resolve-dns "217.20.130.99") (resolve-dns "index.hu")) 1 0 )))
+(monitor "index.hu" "dns" working interval requests (fn [] (validate_dns "index.hu" "8.8.8.8")))
 
 (defn -main
   "I don't do a whole lot ... yet."
