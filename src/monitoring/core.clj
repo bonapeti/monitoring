@@ -29,12 +29,13 @@
   (let [c (riemann/tcp-client {:host host})]
      (go-loop [result (<! results)]
         (let [riemann-result (:result result) 
-              metric (if (instance? Number riemann-result) riemann-result nil)]
+              metric (if (instance? Number riemann-result) riemann-result nil)
+              ]
             (try   
             (-> c (riemann/send-event 
                     {:host (:group result) 
                      :service (:name result) 
-                     :state (if (instance? String riemann-result) "critical" "ok")
+                     :state (.toString riemann-result)
                      :metric metric})
                 (deref 5000 ::timeout))
             (catch Exception e))
@@ -77,12 +78,17 @@
 
 (def app "traktor")
 
+(defn ip_address [dns]
+  (InetAddress/getByName dns))
+
 (defn validate_dns [dns ip]
   (if (= (InetAddress/getByName ip) (InetAddress/getByName dns)) 1 0)) 
 
 (monitor app "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
 (monitor app "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
-(monitor "index.hu" "dns" working interval requests (fn [] (validate_dns "index.hu" "8.8.8.8")))
+(monitor "fileservice-msci-com.msci.net" "dns" working interval requests (fn [] (ip_address "fileservice-msci-com.msci.net")))
+(monitor "dataservice-msci-com.msci.net" "dns" working interval requests (fn [] (ip_address "dataservice-msci-com.msci.net")))
+
 
 (defn -main
   "I don't do a whole lot ... yet."
