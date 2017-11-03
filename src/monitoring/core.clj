@@ -42,15 +42,17 @@
      (go-loop [result (<! results)]
         (let [riemann-result (:result result) 
               metric (if (instance? Number riemann-result) riemann-result nil)
+              state (:state result)
               ]
             (try   
             (-> c (riemann/send-event 
                     {:host (:group result) 
                      :service (:name result) 
-                     :state (state_of riemann-result)
+                     :state (if (not (nil? state)) state (state_of riemann-result))
                      :metric metric})
                 (deref 5000 ::timeout))
-            (catch Exception e))
+            (catch Exception e
+              (prn (.getMessage e))))
               )
         (recur (<! results))
       )))
@@ -67,12 +69,12 @@
 (def mult-results (mult results))
 
 (defn take-sample [request] 
-  {:name (:name request) 
-   :group (:group request)
-   :result (try 
-             ((:sampler request)) 
-             (catch Exception e 
-               (.getMessage e)))})
+  (let [result-map {:name (:name request) :group (:group request)}]
+    (try 
+         (assoc result-map :result ((:sampler request)) :state "ok")
+      (catch Exception e 
+          (assoc result-map :result (.getMessage e) :state "critical")
+          ))))
 
 
 (pipeline-blocking 1 results (map take-sample) requests)
@@ -111,6 +113,7 @@
 (network-service "ftp.barra.com" working interval requests)
 (network-service "ftps.barra.com" working interval requests)
 (network-service "sftp.barra.com" working interval requests)
+(network-service "api-portal-msci-com.msci.net" working interval requests)
 
 (defn -main
   "I don't do a whole lot ... yet."
