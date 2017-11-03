@@ -99,15 +99,18 @@
 (monitor app "jvm.thread.count" working interval requests (fn [] (.getThreadCount (ManagementFactory/getThreadMXBean))))
 (monitor app "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
 
-(monitor "fileservice-msci-com.msci.net" "IP" working interval requests (fn [] (ip_address "fileservice-msci-com.msci.net")))
+(defn network-service [url on? interval request_channel]
+  (monitor url "Expected IP" on? interval request_channel (fn [] (ip_address url))))
 
-(monitor "dataservice-msci-com.msci.net" "IP" working interval requests (fn [] (ip_address "dataservice-msci-com.msci.net")))
-(monitor "ftp.msci.com" "IP" working interval requests (fn [] (ip_address "ftp.msci.com")))
-(monitor "ftps.msci.com" "IP" working interval requests (fn [] (ip_address "ftps.msci.com")))
-(monitor "sftp.msci.com" "IP" working interval requests (fn [] (ip_address "sftp.msci.com")))
-(monitor "ftp.barra.com" "IP" working interval requests (fn [] (ip_address "ftp.barra.com")))
-(monitor "ftps.barra.com" "IP" working interval requests (fn [] (ip_address "ftps.barra.com")))
-(monitor "sftp.barra.com" "IP" working interval requests (fn [] (ip_address "sftp.barra.com")))
+
+(network-service "fileservice-msci-com.msci.net" working interval requests)
+(network-service "dataservice-msci-com.msci.net" working interval requests)
+(network-service "ftp.msci.com" working interval requests)
+(network-service "ftps.msci.com" working interval requests)
+(network-service "sftp.msci.com" working interval requests)
+(network-service "ftp.barra.com" working interval requests)
+(network-service "ftps.barra.com" working interval requests)
+(network-service "sftp.barra.com" working interval requests)
 
 (defn -main
   "I don't do a whole lot ... yet."
