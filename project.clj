@@ -8,8 +8,12 @@
                  [org.clojure/core.async "0.3.443"]
                  [clj-http "3.6.1"]
                  [riemann-clojure-client "0.4.5"]
-                 [org.clojure/tools.logging "0.3.1"]
-                 [ch.qos.logback/logback-classic "1.1.3"]
+                 [org.clojure/tools.logging "0.4.0"]
+                 [org.apache.logging.log4j/log4j-api "2.9.1"]
+                 [org.apache.logging.log4j/log4j-core "2.9.1"]
+                 [org.apache.logging.log4j/log4j-jcl "2.9.1"]
+                 [org.apache.logging.log4j/log4j-slf4j-impl "2.9.1"]
+                 [metrics-clojure "2.10.0"]
                  ]
   :main ^:skip-aot monitoring.core
   :target-path "target/%s"
