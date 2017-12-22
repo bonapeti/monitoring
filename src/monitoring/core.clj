@@ -10,7 +10,7 @@
   (:gen-class))
 
 
-(import '(java.time Instant) '(java.lang.management ManagementFactory) '(java.net InetAddress Socket))
+(import '(java.time Instant) '(java.lang.management ManagementFactory) '(java.net InetSocketAddress InetAddress Socket))
 
 (defprotocol HasState
   "Defines Riemann state for an object"
@@ -114,13 +114,16 @@
 (monitor app "jvm.os.load" working interval requests (fn [] (.getSystemLoadAverage (ManagementFactory/getOperatingSystemMXBean))))
 (monitor app "internal.errors" working interval requests (fn [] (rates riemann-error-meter)))
 
-(defn open-port [host port]
-  (new Socket host port)) 
+(defn open-port [host port time_out]
+    (let [socket (new Socket)]
+      (try 
+        (.connect socket (new InetSocketAddress host port) time_out) "open"
+    (finally (.close socket)))))
 
 (defn network-service [url port on? interval request_channel]
 (do
   (monitor url "Expected IP" on? interval request_channel (fn [] (ip-address url)))
-  (monitor url "Port open?" on? interval request_channel (fn [] (open-port url port)))))
+  (monitor url "Port open?" on? interval request_channel (fn [] (open-port url port (/ (deref interval) 2))))))
 
 
 
@@ -134,10 +137,10 @@
 (network-service "dataservice.msci.com" https working interval requests) 
 (network-service "ftp.msci.com" ftp-port working interval requests)
 (network-service "ftps.msci.com" ftp-port working interval requests)
-;(network-service "sftp.msci.com" sftp-port working interval requests)
-;(network-service "ftp.barra.com" ftp-port working interval requests)
-;(network-service "ftps.barra.com" ftp-port working interval requests)
-;(network-service "sftp.barra.com" sftp-port working interval requests)
+(network-service "sftp.msci.com" sftp-port working interval requests)
+(network-service "ftp.barra.com" ftp-port working interval requests)
+(network-service "ftps.barra.com" ftp-port working interval requests)
+(network-service "sftp.barra.com" sftp-port working interval requests)
 (network-service "api-portal-msci-com.msci.net" https working interval requests)
 (network-service "api-portal.msci.com" https working interval requests)
 
